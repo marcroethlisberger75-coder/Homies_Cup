@@ -521,17 +521,30 @@ function App() {
     persist({ ...state, finalPhaseEnabled: !state.finalPhaseEnabled });
   }
 
-  function handleExport() {
+  async function handleExport() {
+    const data = JSON.stringify(state, null, 2);
+    const filename = "homies-cup-mallorca-2026-spielstand.json";
+
     try {
-      const data = JSON.stringify(state, null, 2);
+      const file = new File([data], filename, { type: "application/json" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+        setToast("Spielstand geteilt!");
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === "AbortError") return; // Nutzer hat Teilen abgebrochen
+    }
+
+    try {
       const blob = new Blob([data], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = "homies-cup-mallorca-2026-spielstand.json";
+      a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       setToast("Spielstand exportiert!");
-    } catch (e) {
+    } catch (e2) {
       setToast("Export leider fehlgeschlagen.");
     }
   }
