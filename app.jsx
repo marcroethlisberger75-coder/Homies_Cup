@@ -56,9 +56,15 @@ function computeTotals(rounds) {
   rounds.forEach(r => {
     if (!r.points) return;
     r.pairs.forEach(([a, b], i) => {
-      const pts = Number(r.points[i]) || 0;
-      totals[a] += pts;
-      totals[b] += pts;
+      const entry = r.points[i];
+      if (Array.isArray(entry)) {
+        totals[a] += Number(entry[0]) || 0;
+        totals[b] += Number(entry[1]) || 0;
+      } else {
+        const pts = Number(entry) || 0;
+        totals[a] += pts;
+        totals[b] += pts;
+      }
     });
   });
   return totals;
@@ -121,7 +127,16 @@ function loadInitialState() {
 function Avatar({ id, size }) {
   const p = byId[id];
   if (!p) return null;
-  return <img src={p.img} alt={p.name} style={{ width: size, height: size }} />;
+  return (
+    <img
+      src={p.img}
+      alt={p.name}
+      style={{
+        width: size, height: size, borderRadius: "50%", objectFit: "cover",
+        border: "3px solid var(--ink)", background: "var(--white)", flexShrink: 0,
+      }}
+    />
+  );
 }
 
 function TeamPairImgs({ a, b, size }) {
@@ -253,24 +268,26 @@ function RevealOverlay({ pairs, roundNumber, onContinue }) {
 }
 
 function PointsEntryCard({ round, onSave }) {
-  const [values, setValues] = useState(() => round.pairs.map(() => ""));
+  const [values, setValues] = useState(() => round.pairs.map(() => ["", ""]));
   const [error, setError] = useState("");
 
-  function update(i, v) {
-    const next = values.slice();
-    next[i] = v;
+  function update(i, personIdx, v) {
+    const next = values.map(pair => pair.slice());
+    next[i][personIdx] = v;
     setValues(next);
   }
 
   function handleSave() {
-    for (const v of values) {
-      if (v === "" || isNaN(Number(v)) || Number(v) < 0) {
-        setError("Bitte für jedes Team eine gültige Punktzahl (0 oder mehr) eingeben.");
-        return;
+    for (const pair of values) {
+      for (const v of pair) {
+        if (v === "" || isNaN(Number(v)) || Number(v) < 0) {
+          setError("Bitte für jede Person eine gültige Punktzahl (0 oder mehr) eingeben.");
+          return;
+        }
       }
     }
     setError("");
-    onSave(values.map(v => Number(v)));
+    onSave(values.map(pair => pair.map(v => Number(v))));
   }
 
   return (
@@ -278,21 +295,23 @@ function PointsEntryCard({ round, onSave }) {
       <span className="stage-ribbon">Runde {round.id} · Punkte eintragen</span>
       <div className="points-list" style={{ marginTop: 26 }}>
         {round.pairs.map(([a, b], i) => (
-          <div className="points-row" key={i}>
-            <TeamPairImgs a={a} b={b} />
-            <div className="pr-names">
-              <span className="pr-tag">Team {i + 1}</span>
-              {byId[a].name} &amp; {byId[b].name}
-            </div>
-            <input
-              className="points-input"
-              type="number"
-              min="0"
-              inputMode="numeric"
-              value={values[i]}
-              onChange={e => update(i, e.target.value)}
-              placeholder="0"
-            />
+          <div className="points-row" key={i} style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }}>
+            <span className="pr-tag">Team {i + 1}</span>
+            {[a, b].map((pid, personIdx) => (
+              <div key={pid} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Avatar id={pid} size={48} />
+                <div className="pr-names" style={{ flex: 1 }}>{byId[pid].name}</div>
+                <input
+                  className="points-input"
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={values[i][personIdx]}
+                  onChange={e => update(i, personIdx, e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+            ))}
           </div>
         ))}
       </div>
