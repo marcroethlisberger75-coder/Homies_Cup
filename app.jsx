@@ -353,10 +353,20 @@ function DrawCard({ roundNumber, onStart }) {
   );
 }
 
-function StandingsModal({ totals, onClose }) {
+function StandingsModal({ rounds, totals, onUpdateRounds, onClose }) {
   const [pwd, setPwd] = useState("");
   const [unlocked, setUnlocked] = useState(false);
   const [err, setErr] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+
+  const finishedRounds = useMemo(() => rounds.filter(r => r.points !== null), [rounds]);
+  const [editPoints, setEditPoints] = useState(() =>
+    finishedRounds.map(r =>
+      r.points.map(entry =>
+        Array.isArray(entry) ? [String(entry[0]), String(entry[1])] : [String(entry), String(entry)]
+      )
+    )
+  );
 
   function tryUnlock(e) {
     e.preventDefault();
@@ -364,11 +374,40 @@ function StandingsModal({ totals, onClose }) {
     else { setErr(true); }
   }
 
+  function updateEdit(roundIdx, teamIdx, personIdx, v) {
+    const next = editPoints.map(r => r.map(p => p.slice()));
+    next[roundIdx][teamIdx][personIdx] = v;
+    setEditPoints(next);
+    setSaveMsg("");
+  }
+
+  function handleSaveEdits() {
+    for (const r of editPoints) {
+      for (const p of r) {
+        for (const v of p) {
+          if (v === "" || isNaN(Number(v)) || Number(v) < 0) {
+            setSaveMsg("error:Bitte überall eine gültige Punktzahl (0 oder mehr) eingeben.");
+            return;
+          }
+        }
+      }
+    }
+    const newRounds = rounds.map(r => {
+      if (r.points === null) return r;
+      const idx = finishedRounds.findIndex(fr => fr.id === r.id);
+      return { ...r, points: editPoints[idx].map(p => p.map(Number)) };
+    });
+    onUpdateRounds(newRounds);
+    setSaveMsg("ok:Änderungen gespeichert!");
+  }
+
   const sorted = useMemo(() => PARTICIPANTS.slice().sort((a, b) => totals[b.id] - totals[a.id]), [totals]);
+  const isError = saveMsg.startsWith("error:");
+  const msgText = saveMsg.replace(/^(error|ok):/, "");
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box" onClick={e => e.stopPropagation()}>
+      <div className="modal-box" style={{ maxWidth: 720 }} onClick={e => e.stopPropagation()}>
         <button className="close-x" onClick={onClose} aria-label="Schliessen">×</button>
         <h3>🔒 Geheime Tabelle</h3>
         {!unlocked ? (
@@ -383,18 +422,65 @@ function StandingsModal({ totals, onClose }) {
             <button className="btn btn-gold btn-full" type="submit">Freischalten</button>
           </form>
         ) : (
-          <table className="standings-table">
-            <thead><tr><th>Platz</th><th>Name</th><th>Punkte</th></tr></thead>
-            <tbody>
-              {sorted.map((p, i) => (
-                <tr key={p.id}>
-                  <td><span className="rank-badge">{i + 1}</span></td>
-                  <td><img className="std-avatar" src={p.img} alt="" />{p.name}</td>
-                  <td>{totals[p.id]}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <table className="standings-table">
+              <thead><tr><th>Platz</th><th>Name</th><th>Punkte</th></tr></thead>
+              <tbody>
+                {sorted.map((p, i) => (
+                  <tr key={p.id}>
+                    <td><span className="rank-badge">{i + 1}</span></td>
+                    <td><img className="std-avatar" src={p.img} alt="" />{p.name}</td>
+                    <td>{totals[p.id]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <h3 style={{ marginTop: 26 }}>Punkte pro Runde</h3>
+            {finishedRounds.length === 0 ? (
+              <p className="log-empty">Noch keine Punkte erfasst.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {finishedRounds.map((r, ri) => (
+                  <div key={r.id} style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
+                    <div style={{ fontFamily: "var(--font-display)", fontSize: 13, color: "var(--gold-deep)", letterSpacing: 0.5, marginBottom: 8 }}>
+                      Runde {r.id}{r.finalPhase ? " · Finalphase" : ""}
+                    </div>
+                    {r.pairs.map(([a, b], ti) => (
+                      <div key={ti} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 11.5, color: "var(--text-soft)", width: 48, flexShrink: 0 }}>Team {ti + 1}</span>
+                        {[a, b].map((pid, pi) => (
+                          <div key={pid} style={{ display: "flex", alignItems: "center", gap: 6, flex: "1 1 160px", minWidth: 140 }}>
+                            <img className="std-avatar" src={byId[pid].img} alt="" />
+                            <span style={{ fontSize: 13.5, fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {byId[pid].name}
+                            </span>
+                            <input
+                              className="points-input"
+                              style={{ width: 52, fontSize: 14, padding: "6px 2px" }}
+                              type="number" min="0" inputMode="numeric"
+                              value={editPoints[ri][ti][pi]}
+                              onChange={e => updateEdit(ri, ti, pi, e.target.value)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+            {saveMsg && (
+              <p style={{ fontSize: 13, color: isError ? "#8a2b1f" : "var(--gold-deep)", fontWeight: 700, marginTop: 10 }}>
+                {msgText}
+              </p>
+            )}
+            {finishedRounds.length > 0 && (
+              <button className="btn btn-gold btn-full" style={{ marginTop: 14 }} onClick={handleSaveEdits}>
+                Änderungen speichern
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -687,7 +773,14 @@ function App() {
       {uiPhase === "reveal" && currentRound && (
         <RevealOverlay pairs={currentRound.pairs} roundNumber={currentRound.id} onContinue={handleRevealContinue} />
       )}
-      {showTable && <StandingsModal totals={totals} onClose={() => setShowTable(false)} />}
+      {showTable && (
+        <StandingsModal
+          rounds={rounds}
+          totals={totals}
+          onUpdateRounds={(newRounds) => persist({ ...state, rounds: newRounds })}
+          onClose={() => setShowTable(false)}
+        />
+      )}
       {showReset && (
         <ConfirmModal
           title="Neustart – bist du sicher?"
