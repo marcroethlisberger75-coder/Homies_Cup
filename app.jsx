@@ -736,8 +736,7 @@ function App() {
             <label className="toggle-row">
               <input type="checkbox" checked={state.finalPhaseEnabled} onChange={toggleFinalPhase} />
               <span className="toggle-text">
-                <strong>Finalphase (nur noch 2 Runden)</strong>
-                <span>Top-4-Spieler werden getrennt ausgelost, die letzte Paarung nicht wiederholt — nach 2 Runden ist das Turnier beendet.</span>
+                <strong>Finalphase</strong>
               </span>
             </label>
             <div className="btn-row">
