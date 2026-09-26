@@ -270,6 +270,7 @@ function RevealOverlay({ pairs, roundNumber, onContinue }) {
 
 function PointsEntryCard({ round, onSave }) {
   const [values, setValues] = useState(() => round.pairs.map(() => ["", ""]));
+  const [gameName, setGameName] = useState(round.gameName || "");
   const [error, setError] = useState("");
 
   function update(i, personIdx, v) {
@@ -288,13 +289,21 @@ function PointsEntryCard({ round, onSave }) {
       }
     }
     setError("");
-    onSave(values.map(pair => pair.map(v => Number(v))));
+    onSave(values.map(pair => pair.map(v => Number(v))), gameName.trim());
   }
 
   return (
     <div className="stage">
       <span className="stage-ribbon">Runde {round.id} · Punkte eintragen</span>
-      <div className="points-list" style={{ marginTop: 26 }}>
+      <input
+        type="text"
+        className="pw-input"
+        style={{ maxWidth: 320, marginTop: 26, textAlign: "center" }}
+        placeholder="Name des Spiels (z. B. Quiz)"
+        value={gameName}
+        onChange={e => setGameName(e.target.value)}
+      />
+      <div className="points-list" style={{ marginTop: 16 }}>
         {round.pairs.map(([a, b], i) => (
           <div className="points-row" key={i} style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }}>
             <span className="pr-tag">Team {i + 1}</span>
@@ -444,7 +453,7 @@ function StandingsModal({ rounds, totals, onUpdateRounds, onClose }) {
                 {finishedRounds.map((r, ri) => (
                   <div key={r.id} style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
                     <div style={{ fontFamily: "var(--font-display)", fontSize: 13, color: "var(--gold-deep)", letterSpacing: 0.5, marginBottom: 8 }}>
-                      Runde {r.id}{r.finalPhase ? " · Finalphase" : ""}
+                      Runde {r.id}{r.gameName ? " - " + r.gameName : ""}{r.finalPhase ? " · Finalphase" : ""}
                     </div>
                     {r.pairs.map(([a, b], ti) => (
                       <div key={ti} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
@@ -616,9 +625,9 @@ function App() {
     setPendingPairs(null);
   }
 
-  function handleSavePoints(pointsArr) {
+  function handleSavePoints(pointsArr, gameName) {
     const newRounds = rounds.slice();
-    newRounds[newRounds.length - 1] = { ...currentRound, points: pointsArr };
+    newRounds[newRounds.length - 1] = { ...currentRound, points: pointsArr, gameName: gameName || "" };
     persist({ ...state, rounds: newRounds });
     setToast(`Runde ${currentRound.id} gespeichert!`);
   }
